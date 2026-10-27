@@ -21,4 +21,29 @@ class EloRatingService
     {
         throw new BadMethodCallException('Funcionalidade ainda não implementada.');
     }
+
+    /**
+     * Calcula a pontuação Elo esperada do mandante.
+     *
+     * Retorna um valor entre 0 e 1, considerando a força
+     * das equipes e a vantagem de mando de campo.
+     *
+     * Não representa a probabilidade isolada de vitória
+     * nem prevê o placar da partida.
+    */
+    public function calculateExpectedEloScore(
+        float $homeElo,
+        float $awayElo,
+        float $homeAdvantage = 70
+    ): float {
+        $adjustedHomeElo = $homeElo + $homeAdvantage;
+
+        return 1 / (
+            1 + pow(
+                10,
+                ($awayElo - $adjustedHomeElo) / 400
+            )
+        );
+    }
+
 }
