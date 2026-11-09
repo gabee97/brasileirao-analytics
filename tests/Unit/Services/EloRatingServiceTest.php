@@ -180,4 +180,39 @@ class EloRatingServiceTest extends TestCase
         );
     }
 
+
+    public function test_rejects_negative_goals(): void
+    {
+        $service = new EloRatingService();
+
+        $this->expectException(
+            \InvalidArgumentException::class
+        );
+
+        $service->processMatch(
+            1500,
+            1500,
+            -2,
+            1
+        );
+    }
+
+    public function test_rejects_invalid_k_factor(): void
+    {
+        $service = new EloRatingService();
+
+        $this->expectException(
+            \InvalidArgumentException::class
+        );
+
+        $service->processMatch(
+            1500,
+            1500,
+            2,
+            1,
+            -20
+        );
+    }
+
+
 }

@@ -141,6 +141,19 @@ class EloRatingService
         float $k = 20,
         float $homeAdvantage = 70
     ): array {
+
+        if ($homeGoals < 0 || $awayGoals < 0) {
+            throw new \InvalidArgumentException(
+                'A quantidade de gols não pode ser negativa.'
+            );
+        }
+
+        if (!is_finite($k) || $k <= 0) {
+            throw new \InvalidArgumentException(
+                'O fator K deve ser um número positivo e finito.'
+            );
+        }
+
         // 1. Calcula a expectativa do mandante
         $expectedHome = $this->calculateExpectedEloScore(
             $homeElo,
