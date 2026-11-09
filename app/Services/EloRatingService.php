@@ -17,9 +17,78 @@ class EloRatingService
      *
      * @throws BadMethodCallException
      */
-    public function calculate(array $teams, array $matches, array $parameters = []): array
-    {
-        throw new BadMethodCallException('Funcionalidade ainda não implementada.');
+    public function calculate(
+        array $teams,
+        array $matches,
+        array $parameters = []
+    ): array {
+        $k = $parameters['k'] ?? 20;
+        $homeAdvantage = $parameters['home_advantage'] ?? 70;
+
+        // 1. Inicializa os ratings das equipes
+        $ratings = [];
+
+        foreach ($teams as $team) {
+            $ratings[$team['id']] = [
+                'id' => $team['id'],
+                'name' => $team['name'],
+                'elo' => (float) $team['initial_elo'],
+            ];
+        }
+
+        // 2. Ordena as partidas cronologicamente
+        usort($matches, static function ($a, $b) {
+            return strtotime($a['played_at'])
+                <=> strtotime($b['played_at']);
+        });
+
+        $history = [];
+
+        // 3. Processa cada partida
+        foreach ($matches as $match) {
+            $homeId = $match['home_team_id'];
+            $awayId = $match['away_team_id'];
+
+            if (!isset($ratings[$homeId], $ratings[$awayId])) {
+                throw new \InvalidArgumentException(
+                    'Partida contém equipe não cadastrada.'
+                );
+            }
+
+            $result = $this->processMatch(
+                $ratings[$homeId]['elo'],
+                $ratings[$awayId]['elo'],
+                $match['home_goals'],
+                $match['away_goals'],
+                $k,
+                $homeAdvantage
+            );
+
+            // 4. Atualiza os ratings acumulados
+            $ratings[$homeId]['elo'] = $result['home_elo_after'];
+            $ratings[$awayId]['elo'] = $result['away_elo_after'];
+
+            // 5. Guarda o histórico da partida
+            $history[] = [
+                'match_id' => $match['id'],
+                'played_at' => $match['played_at'],
+                'home_team_id' => $homeId,
+                'away_team_id' => $awayId,
+                ...$result,
+            ];
+        }
+
+        // 6. Ordena as equipes pelo Elo final
+        $ranking = array_values($ratings);
+
+        usort($ranking, static function ($a, $b) {
+            return $b['elo'] <=> $a['elo'];
+        });
+
+        return [
+            'ranking' => $ranking,
+            'history' => $history,
+        ];
     }
 
     /**
@@ -62,6 +131,61 @@ class EloRatingService
     ): float {
         return $currentElo + $k * ($actualScore - $expectedScore);
     }
+
+
+    public function processMatch(
+        float $homeElo,
+        float $awayElo,
+        int $homeGoals,
+        int $awayGoals,
+        float $k = 20,
+        float $homeAdvantage = 70
+    ): array {
+        // 1. Calcula a expectativa do mandante
+        $expectedHome = $this->calculateExpectedEloScore(
+            $homeElo,
+            $awayElo,
+            $homeAdvantage
+        );
+
+        // 2. A expectativa do visitante é complementar
+        $expectedAway = 1 - $expectedHome;
+
+        // 3. Identifica o resultado real do mandante
+        $actualHome = match (true) {
+            $homeGoals > $awayGoals => 1.0,
+            $homeGoals === $awayGoals => 0.5,
+            default => 0.0,
+        };
+
+        // 4. Resultado do visitante
+        $actualAway = 1 - $actualHome;
+
+        // 5. Atualiza o Elo dos dois clubes
+        $newHomeElo = $this->updateRating(
+            $homeElo,
+            $expectedHome,
+            $actualHome,
+            $k
+        );
+
+        $newAwayElo = $this->updateRating(
+            $awayElo,
+            $expectedAway,
+            $actualAway,
+            $k
+        );
+
+        return [
+            'home_elo_before' => $homeElo,
+            'away_elo_before' => $awayElo,
+            'home_elo_after' => $newHomeElo,
+            'away_elo_after' => $newAwayElo,
+            'home_variation' => $newHomeElo - $homeElo,
+            'away_variation' => $newAwayElo - $awayElo,
+        ];
+    }
+
 
     
 }
