@@ -163,6 +163,58 @@ Abra <http://127.0.0.1:8000>. Também é possível usar `composer run dev`.
 Não há etapa npm. Se configurar Apache/Nginx futuramente, a raiz pública deve ser
 `public/`, nunca a raiz inteira do projeto.
 
+## Calcular a classificação
+
+Use os arquivos JSON normalizados pelo importador sem copiá-los para este projeto:
+
+```bash
+php artisan standings:calculate \
+  ../brasileirao-importer/data/normalized/teams.json \
+  ../brasileirao-importer/data/normalized/matches.json
+```
+
+O comando exibe uma tabela com posição, equipe, pontos (P), jogos (J), vitórias (V),
+empates (E), derrotas (D), gols pró (GP), gols contra (GC) e saldo (SG). Os critérios
+de desempate disponíveis nos dados seguem o art. 15 do regulamento da Série A 2025:
+vitórias, saldo de gols, gols pró e confronto direto. Este último só é aplicado entre
+dois clubes, quando os dois jogos de ida e volta estão presentes. Cartões e sorteio
+não são aplicados porque não fazem parte do contrato exportado.
+
+Os dois argumentos são obrigatórios. Arquivos ausentes ou ilegíveis, JSON malformado,
+raiz que não seja uma lista, equipes duplicadas, referências a equipes desconhecidas
+e gols ausentes, negativos ou não inteiros produzem uma mensagem de erro e código de
+saída `1`. A leitura não altera os arquivos do importador e não usa banco de dados.
+
+## Calcular o ranking Elo
+
+Para processar a temporada com os parâmetros padrão (`K=20` e vantagem de mando
+de 70 pontos Elo):
+
+```bash
+php artisan elo:calculate \
+  ../brasileirao-importer/data/normalized/teams.json \
+  ../brasileirao-importer/data/normalized/matches.json
+```
+
+Os parâmetros podem ser ajustados explicitamente:
+
+```bash
+php artisan elo:calculate teams.json matches.json --k=30 --home-advantage=50
+```
+
+A tabela apresenta posição, clube, Elo inicial, Elo final e variação, ordenada pelo
+Elo final. Nesta etapa todas as equipes devem possuir `initial_elo` igual a 1500.
+O Elo é uma medida relativa de força e não deve ser interpretado como probabilidade
+de vitória, título ou rebaixamento.
+
+Os arquivos são validados antes do cálculo. O comando rejeita arquivos ausentes,
+JSON inválido, campos obrigatórios ausentes, equipes ou partidas duplicadas, placares
+inválidos, ratings não finitos e parâmetros inválidos. Falhas retornam código `1`.
+
+As partidas são ordenadas por `played_at` e, em datas iguais, pelo `id` original.
+Isso torna o resultado reproduzível para a fonte de 2025, que contém somente datas,
+mas não significa que essa tenha sido a ordem cronológica real dos jogos no mesmo dia.
+
 ## Testes e estilo
 
 ```bash

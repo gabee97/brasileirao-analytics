@@ -140,6 +140,16 @@ class EloRatingServiceTest extends TestCase
             array_sum(array_column($result['ranking'], 'elo')),
             0.0001
         );
+
+        foreach ($result['history'] as $match) {
+            $this->assertEqualsWithDelta(
+                $match['home_elo_before'] + $match['away_elo_before'],
+                $match['home_elo_after'] + $match['away_elo_after'],
+                0.000000001,
+            );
+            $this->assertTrue(is_finite($match['home_elo_after']));
+            $this->assertTrue(is_finite($match['away_elo_after']));
+        }
     }
 
 
@@ -214,5 +224,25 @@ class EloRatingServiceTest extends TestCase
         );
     }
 
+    public function test_rejects_initial_rating_other_than_1500(): void
+    {
+        $teams = require dirname(__DIR__, 2).'/Fixtures/teams.php';
+        $teams[0]['initial_elo'] = 1600;
 
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('deve ser 1500');
+
+        (new EloRatingService())->calculate($teams, []);
+    }
+
+    public function test_same_day_matches_are_ordered_by_id(): void
+    {
+        $teams = require dirname(__DIR__, 2).'/Fixtures/teams.php';
+        $matches = require dirname(__DIR__, 2).'/Fixtures/matches.php';
+        $matches = [$matches[1], $matches[0]];
+
+        $result = (new EloRatingService())->calculate($teams, $matches);
+
+        $this->assertSame([1, 2], array_column($result['history'], 'match_id'));
+    }
 }
