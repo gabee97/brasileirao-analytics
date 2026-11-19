@@ -133,8 +133,8 @@ class EloRatingService
                 throw new InvalidArgumentException("Identificador de equipe duplicado: {$team['id']}.");
             }
             $initialElo = $this->finiteNumber($team['initial_elo'], "initial_elo da equipe {$team['id']}");
-            if ($initialElo !== 1500.0) {
-                throw new InvalidArgumentException("O initial_elo da equipe {$team['id']} deve ser 1500 nesta execução.");
+            if ($initialElo <= 0) {
+                throw new InvalidArgumentException("O initial_elo da equipe {$team['id']} deve ser positivo.");
             }
             $ratings[$team['id']] = [
                 'id' => $team['id'], 'name' => $team['name'],

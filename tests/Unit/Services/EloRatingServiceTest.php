@@ -223,16 +223,38 @@ class EloRatingServiceTest extends TestCase
             -20
         );
     }
-
-    public function test_rejects_initial_rating_other_than_1500(): void
+ 
+    public function test_accepts_different_initial_ratings(): void
     {
-        $teams = require dirname(__DIR__, 2).'/Fixtures/teams.php';
-        $teams[0]['initial_elo'] = 1600;
+        $service = new EloRatingService();
 
-        $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('deve ser 1500');
+        $teams = [
+            ['id' => 'a', 'name' => 'Time A', 'initial_elo' => 1600],
+            ['id' => 'b', 'name' => 'Time B', 'initial_elo' => 1400],
+        ];
 
-        (new EloRatingService())->calculate($teams, []);
+        $matches = [
+            [
+                'id' => 1,
+                'played_at' => '2025-03-29',
+                'home_team_id' => 'a',
+                'away_team_id' => 'b',
+                'home_goals' => 2,
+                'away_goals' => 1,
+            ],
+        ];
+
+        $result = $service->calculate(
+            $teams,
+            $matches,
+            ['home_advantage' => 0]
+        );
+
+        $history = $result['history'][0];
+
+        $this->assertSame(1600.0, $history['home_elo_before']);
+        $this->assertSame(1400.0, $history['away_elo_before']);
+        $this->assertGreaterThan(0, $history['home_variation']);
     }
 
     public function test_same_day_matches_are_ordered_by_id(): void
